@@ -85,6 +85,8 @@ if __name__ == '__main__':
                         help='File path for output')
     parser.add_argument('--edge_list', metavar='e', type=str, 
                         help='Edgelist of target graph. Only required if Triple_file == "all"')
+    parser.add_argument('--addin', metavar='a', type=bool, default=False, 
+                        help='Whether this is an addin experiment instead of knockout')
     args = parser.parse_args()
 
     # Load model
@@ -100,20 +102,23 @@ if __name__ == '__main__':
         output_file_name = '/all_query_scores.csv'
     else:
         input_triples = pd.read_csv(args.Triple_file, header=None, sep='\t')
-        output_file_name = '/knockout_preds.csv'
+        if args.addin:
+            output_file_name = '/addin_preds.csv'
+        else:    
+            output_file_name = '/knockout_preds.csv'
 
-        # In high-proportion knockout datasets, unseen entities are a problem
-        # So remove them and store elsewhere
-        unseen_knockouts = pd.DataFrame()
-        for i, row in input_triples.iterrows():
-            ents_check = row[0] in ents and row[2] in ents
-            rel_check = row[1] in rels
-            if not (ents_check and rel_check):
-                input_triples.drop(i, inplace=True)
-                unseen_knockouts = unseen_knockouts.append(row)
-        num_unseen = len(unseen_knockouts)
-        if num_unseen > 0:
-            print(f'Dropped {num_unseen} knockouts from input triples. See Output_dir/unseen_knockouts.tsv')
+            # In high-proportion knockout datasets, unseen entities are a problem
+            # So remove them and store elsewhere
+            unseen_knockouts = pd.DataFrame()
+            for i, row in input_triples.iterrows():
+                ents_check = row[0] in ents and row[2] in ents
+                rel_check = row[1] in rels
+                if not (ents_check and rel_check):
+                    input_triples.drop(i, inplace=True)
+                    unseen_knockouts = unseen_knockouts.append(row)
+            num_unseen = len(unseen_knockouts)
+            if num_unseen > 0:
+                print(f'Dropped {num_unseen} knockouts from input triples. See Output_dir/unseen_knockouts.tsv')
 
 
 
