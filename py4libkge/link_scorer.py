@@ -1,9 +1,8 @@
 import argparse
 import numpy as np
 import pandas as pd
-from os import listdir #TODO: Delete line
-
 import torch
+
 from kge.model import KgeModel
 from kge.util.io import load_checkpoint
 
@@ -78,7 +77,7 @@ if __name__ == '__main__':
     parser.add_argument('Checkpoint', metavar='C', type=str,
                         help='Model checkpoint to load')
     parser.add_argument('Triple_file', metavar='T', type=str,
-                        help='.csv containing sp_ triples to test')
+                        help='.tsv containing triples to test')
     parser.add_argument('Output_loc', metavar='O', type=str,
                         help='File path for output dir')
     parser.add_argument('--query_type', metavar='q', default='sp_', type=str,
@@ -120,8 +119,6 @@ if __name__ == '__main__':
             if num_unseen > 0:
                 print(f'Dropped {num_unseen} knockouts from input triples. See Output_dir/unseen_knockouts.tsv')
 
-
-
     # Calculate scores
     if args.query_type == 'sp_':
         subjects, predicates = prepare_sp_(input_triples, kge_model)
@@ -136,10 +133,24 @@ if __name__ == '__main__':
         raise ValueError(
             'Invalid query type, should be one of: "sp_", "_po", "s_o".')
 
-    # Save results
+    # Process and save results
     results = create_results_file(
         query_scores, kge_model, args.query_type)
-    results.to_csv(args.Output_loc + output_file_name, index=False)
+    
+    if args.addin:
+        trimmed_results = input_triples[[0, 1, 2]]
+        trimmed_results.columns = ['s', 'p', 'o']
+        trimmed_results['score'] = None
+        element_type_to_check = [letter for letter in 'spo' if letter not in args.query_type][0]
+        for i, row in trimmed_results.iterrows():
+            element_to_check = row[element_type_to_check]
+            score = results[element_to_check][i]
+            trimmed_results['score'][i] = score
+        trimmed_results.to_csv(args.Output_loc + output_file_name, index=False)
+    else:
+        results.to_csv(args.Output_loc + output_file_name, index=False)
+
+    # Store unseen knockouts if any exist
     try:
         if num_unseen > 0:
             unseen_knockouts.to_csv(args.Output_loc + '/unseen_knockouts.tsv', index=False, sep='\t')
