@@ -11,17 +11,20 @@ if __name__ == '__main__':
             entity rankings')
     parser.add_argument('Predictions', metavar='P', type=str,
                         help='Output file from py4libkge/link_scorer.py')
-    parser.add_argument('Edgelist_without_knockouts', metavar='E', type=str,
+    parser.add_argument('Edgelist_processed', metavar='E', type=str,
                         help='Combined edges from train, test and valid splits')
     parser.add_argument('Output_directory', metavar='o', type=str,
-                        help='Optional file name for output')  #TODO: Implement this
+                        help='Optional file name for output')
+    parser.add_argument('--addin', metavar='a', type=bool, default=False, 
+                        help='Whether this is an addin experiment instead of knockout')
     args = parser.parse_args()
 
     # Load in data
-    knockout_preds = pd.read_csv(args.Predictions)
-    edgelist = pd.read_csv(args.Edgelist_without_knockouts, header=None, sep='\t')
+    preds = pd.read_csv(args.Predictions)
+    edgelist = pd.read_csv(args.Edgelist_processed, header=None, sep='\t')
+
     # Construct output dataframe
-    knockout_result_assessment = knockout_preds[['s', 'p', 'o', 'query_type']]
+    preds_assessment = preds[['s', 'p', 'o', 'query_type']]
     columns_to_add = [
         'rank', 'score_given', 
         'rank1_entity', 'rank1_score',
@@ -31,24 +34,23 @@ if __name__ == '__main__':
         'rank5_entity', 'rank5_score'
     ]
     for col in columns_to_add:
-        knockout_result_assessment[col] = None  
+        preds_assessment[col] = None  
 
     # Get set of existant edges
     existant_edges = [list(x) for x in edgelist.to_numpy()]
 
-
     # Iterate through knockouts, assessing model performance for each
-    for i, row in knockout_preds.iterrows():
-        knocked_edge = [row['s'], row['p'], row['o']]
+    for i, row in preds.iterrows():
+        pred_edge = [row['s'], row['p'], row['o']]
         correct_entity = row['o']
 
         # Check for knockout leakage
-        if knocked_edge in existant_edges:
-            knockout_result_assessment.loc[i] = knocked_edge + ['sp_', 'NA: edge in training set'] + [None for _ in range(len(columns_to_add)-1)]
+        if pred_edge in existant_edges and not args.addin:
+            preds_assessment.loc[i] = pred_edge + ['sp_', 'NA: edge in training set'] + [None for _ in range(len(columns_to_add)-1)]
 
         else:
             # Order scores to check rank of correct entity
-            scores = row[row.index[4:]].sort_values(ascending=False)
+            scores = row[row.index[4:]].sort_values(ascending=args.addin)
 
             top5_entities_and_scores = []
             rank = 1
@@ -68,9 +70,11 @@ if __name__ == '__main__':
                     correct_entity_score = score
                     correct_entity_rank = rank
 
-                # Check if entity represents an existant edge, skip if yes
+                # Check if entity represents a non-rankable edge, skip if yes
                 edge_to_check = [row['s'], row['p'], entity]
-                if edge_to_check in existant_edges:
+                if not args.addin and edge_to_check in existant_edges:
+                    continue
+                elif args.addin and edge_to_check not in existant_edges:
                     continue
                 else:
                     rank += 1
@@ -82,13 +86,16 @@ if __name__ == '__main__':
 
                 if correct_entity_found and len(top5_entities_and_scores) == 10:
                     # Save result if have top 5 entities and have found correct_entity
-                    result = knocked_edge + ['sp_', correct_entity_rank, correct_entity_score] + top5_entities_and_scores
-                    knockout_result_assessment.loc[i] = result
+                    result = pred_edge + ['sp_', correct_entity_rank, correct_entity_score] + top5_entities_and_scores
+                    preds_assessment.loc[i] = result
+                    continue
 
-            # Account for case where < 5 entities represented non-existant edges
+            # Account for case where < 5 entities represented rankable edges
             if len(top5_entities_and_scores) < 10:
                 while len(top5_entities_and_scores) < 10:
                     top5_entities_and_scores.append(None)
-                knockout_result_assessment.loc[i] = knocked_edge + ['sp_', correct_entity_rank, correct_entity_score] + top5_entities_and_scores
-
-    knockout_result_assessment.to_csv(f'{args.Output_directory}/knockout_results.csv', index=False)
+                preds_assessment.loc[i] = pred_edge + ['sp_', correct_entity_rank, correct_entity_score] + top5_entities_and_scores
+    if args.addin:
+        preds_assessment.to_csv(f'{args.Output_directory}/addin_results.csv', index=False)
+    else:
+        preds_assessment.to_csv(f'{args.Output_directory}/knockout_results.csv', index=False)
