@@ -84,7 +84,7 @@ if __name__ == '__main__':
                         help='File path for output')
     parser.add_argument('--edge_list', metavar='e', type=str, 
                         help='Edgelist of target graph. Only required if Triple_file == "all"')
-    parser.add_argument('--addin', metavar='a', type=bool, default=False, 
+    parser.add_argument('--addins', metavar='a', type=str, default=None, 
                         help='Whether this is an addin experiment instead of knockout')
     args = parser.parse_args()
 
@@ -101,8 +101,10 @@ if __name__ == '__main__':
         output_file_name = '/all_query_scores.csv'
     else:
         input_triples = pd.read_csv(args.Triple_file, header=None, sep='\t')
-        if args.addin:
-            output_file_name = '/addin_preds.csv'
+        if args.addins:
+            output_file_name = '/addin_all_edge_scores.csv'
+            addins = pd.read_csv(args.addins, header=None, sep='\t')
+            addins_list = [list(edge) for edge in addins.to_numpy()]
         else:    
             output_file_name = '/knockout_preds.csv'
 
@@ -137,15 +139,20 @@ if __name__ == '__main__':
     results = create_results_file(
         query_scores, kge_model, args.query_type)
     
-    if args.addin:
+    if args.addins:
         trimmed_results = input_triples[[0, 1, 2]]
         trimmed_results.columns = ['s', 'p', 'o']
+        trimmed_results['addin'] = None
         trimmed_results['score'] = None
-        element_type_to_check = [letter for letter in 'spo' if letter not in args.query_type][0]
+        element_type_to_check = [letter for letter in 'osp' if letter not in args.query_type][0]
+
         for i, row in trimmed_results.iterrows():
             element_to_check = row[element_type_to_check]
             score = results[element_to_check][i]
             trimmed_results['score'][i] = score
+
+            trimmed_results['addin'][i] = [row['s'], row['p'], row['o']] in addins_list
+
         trimmed_results.to_csv(args.Output_loc + output_file_name, index=False)
     else:
         results.to_csv(args.Output_loc + output_file_name, index=False)
