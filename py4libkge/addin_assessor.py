@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     # Create results frame 
     addin_results = scores[['s', 'p', 'o', 'score']].loc[scores.addin == True]
-    addin_results['reverse_rank'] = addin_results.index
+    addin_results['reverse_rank'] = addin_results.index + 1
 
     # Adjust so as not to penalise for ranking below other addin edges
     addin_results['adjusted_reverse_rank'] = None
@@ -27,7 +27,7 @@ if __name__ == '__main__':
     for i, row in addin_results.iterrows():
         adjusted_reverse_rank = row.reverse_rank - i  
         addin_results.adjusted_reverse_rank[i] = adjusted_reverse_rank
-    
+
     # Caluculate MRR
     addin_results['mean_reciprocal_adjusted_reverse_rank'] = 1/addin_results.adjusted_reverse_rank
 
