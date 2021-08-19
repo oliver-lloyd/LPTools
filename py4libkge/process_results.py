@@ -75,47 +75,56 @@ if __name__ == "__main__":
             # Check if trial is valid and finished
             valid_trial_check = os.path.isdir(path_to_this_experiment + loc) and trial_number in results.child_folder
             if not valid_trial_check and args.complete_unfinished:
-                print(f'Trial {loc} not found in trace. Resuming experiment...')
-                os.system(f'kge resume {path_to_this_experiment}')
+                print(f'Trial {loc} not found in trace. Resuming experiment on CPU...')
+                os.system(f'kge resume {path_to_this_experiment} --job.device cpu')
+                os.system(f'kge dump trace {path_to_this_experiment} > {path_to_this_result}')
+                new_trace = pd.read_csv(path_to_this_result)
+                new_row = results.loc[results.child_folder == trial_number]
+                if len(new_row) == 1:
+                    results.loc[len(results)] = new_row
+                elif len(new_row) == 0:
+                    raise FileNotFoundError(f'Trial {loc} still not found after resuming experiment.')
+                else:
+                    raise ValueError(f'Multiple trial rows found for trial {loc}.')
             elif not valid_trial_check:
                 raise FileNotFoundError(f'Trial {loc} not found in the experiment trace. Experiment is likely unfinished, please finish before re-running this script')
+            
+            # Load config data
+            row = results.loc[results.child_folder == trial_number]
+            child_job_id = row['child_job_id'].iloc[0]
+            with open(path_to_this_experiment + loc + f'/config/{child_job_id}.yaml') as file:
+                config = yaml.load(file, yaml.FullLoader)
+
+            # Check performance, delete all checkpoint if not best trial
+            if row.metric.iloc[0] != max(results.metric):
+                os.system(f"rm {path_to_this_experiment}/{loc}/*.pt")
             else:
-                # Load config data
-                row = results.loc[results.child_folder == trial_number]
-                child_job_id = row['child_job_id'].iloc[0]
-                with open(path_to_this_experiment + loc + f'/config/{child_job_id}.yaml') as file:
-                    config = yaml.load(file, yaml.FullLoader)
+                os.system(f"rm {path_to_this_experiment}/{loc}/checkpoint_0*.pt")
+            
 
-                # Check performance, delete all checkpoint if not best trial
-                if row.metric.iloc[0] != max(results.metric):
-                    os.system(f"rm {path_to_this_experiment}/{loc}/*.pt")
-                else:
-                    os.system(f"rm {path_to_this_experiment}/{loc}/checkpoint_0*.pt")
-                
-
-                # Get values for each parameter of interest and store in results
-                for param in non_fixed_params:
-                    keys = param.split('.')
-                    value = config
-                    for key in keys:
-                        try:
-                            value = value[key]
-                        except KeyError:
-                            target_key = keys[-1]
-                            value = nested_lookup(target_key, value)
-                            if len(value) == 1:
-                                value = value[0]
-                            break
-                    if param == 'train.optimizer':
-                        value = nested_lookup('type', value)[0]
-                    
-                    # Check for type of returned value
+            # Get values for each parameter of interest and store in results
+            for param in non_fixed_params:
+                keys = param.split('.')
+                value = config
+                for key in keys:
                     try:
-                        results[param][trial_number] = value
-                    except ValueError:
-                        print(
-                            f"{param} could not be properly parsed. The resulting dictionary has been converted to a string.")
-                        results[param][trial_number] = str(value)
+                        value = value[key]
+                    except KeyError:
+                        target_key = keys[-1]
+                        value = nested_lookup(target_key, value)
+                        if len(value) == 1:
+                            value = value[0]
+                        break
+                if param == 'train.optimizer':
+                    value = nested_lookup('type', value)[0]
+                
+                # Check for type of returned value
+                try:
+                    results[param][trial_number] = value
+                except ValueError:
+                    print(
+                        f"{param} could not be properly parsed. The resulting dictionary has been converted to a string.")
+                    results[param][trial_number] = str(value)
 
         # Write results to file
         results.to_csv(path_to_this_result, index=False)
