@@ -16,6 +16,8 @@ if __name__ == "__main__":
                         help='LibKGE experiment folder(s) of interest.')
     parser.add_argument('--result_path', metavar='r', type=str, nargs=1,
                         help='Path to results dir.', default='/bp1store/mrcieu1/users/fu19841/results/')
+    parser.add_argument('--complete_unfinished', metavar='c', type=bool, nargs=1,
+                        help='Whether to resume experiment if unfinished trials are detected.', default=False)
     args = parser.parse_args()
     
     # Process args
@@ -70,8 +72,15 @@ if __name__ == "__main__":
             except ValueError:
                 continue
 
-            # Load configuration data
-            if os.path.isdir(path_to_this_experiment) and trial_number in results.child_folder:
+            # Check if trial is valid and finished
+            valid_trial_check = os.path.isdir(path_to_this_experiment + loc) and trial_number in results.child_folder
+            if not valid_trial_check and args.complete_unfinished:
+                print(f'Trial {loc} not found in trace. Resuming experiment...')
+                os.system(f'kge resume {path_to_this_experiment}')
+            elif not valid_trial_check:
+                raise FileNotFoundError(f'Trial {loc} not found in the experiment trace. Experiment is likely unfinished, please finish before re-running this script')
+            else:
+                # Load config data
                 row = results.loc[results.child_folder == trial_number]
                 child_job_id = row['child_job_id'].iloc[0]
                 with open(path_to_this_experiment + loc + f'/config/{child_job_id}.yaml') as file:
