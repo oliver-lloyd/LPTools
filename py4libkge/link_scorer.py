@@ -82,10 +82,8 @@ if __name__ == '__main__':
                         help='File path for output dir')
     parser.add_argument('--query_type', metavar='q', default='sp_', type=str,
                         help='File path for output')
-    parser.add_argument('--edge_list', metavar='e', type=str, 
-                        help='Edgelist of target graph. Only required if Triple_file == "all"')
     parser.add_argument('--addins', metavar='a', type=str, default=None, 
-                        help='Whether this is an addin experiment instead of knockout')
+                        help='List of added-in edges')
     args = parser.parse_args()
 
     # Load model

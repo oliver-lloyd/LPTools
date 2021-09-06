@@ -16,8 +16,6 @@ if __name__ == "__main__":
                         help='LibKGE experiment folder(s) of interest.')
     parser.add_argument('--result_path', metavar='r', type=str, nargs=1,
                         help='Path to results dir.', default='/bp1store/mrcieu1/users/fu19841/results/')
-    parser.add_argument('--complete_unfinished', metavar='c', type=bool, nargs=1,
-                        help='Whether to resume experiment if unfinished trials are detected.', default=False)
     args = parser.parse_args()
     
     # Process args
