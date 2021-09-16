@@ -50,8 +50,26 @@ def prepare_s_o(edges, model):
 
     return s, o
 
+def prepare_spo(edges, model):
 
-def create_results_file(scores, model, query_type):
+    entity_mapper = {name: i for i, name in enumerate(
+    model.dataset.entity_strings())}
+
+    subject_entity_ids = [entity_mapper[name] for name in edges[0]]
+    s = torch.Tensor(subject_entity_ids).long()
+
+    object_entity_ids = [entity_mapper[name] for name in edges[2]]
+    o = torch.Tensor(object_entity_ids).long()
+
+    relation_mapper = {name: i for i, name in enumerate(
+        model.dataset.relation_strings())}
+    target_relation_ids = [relation_mapper[name] for name in edges[1]]
+    p = torch.Tensor(target_relation_ids).long()
+
+    return s, p, o
+
+
+def create_wide_results_file(input_edges, scores, model, query_type):
 
     cols = ['s', 'p', 'o', 'query_type']
     if query_type == 's_o':
@@ -60,11 +78,19 @@ def create_results_file(scores, model, query_type):
         cols += model.dataset.entity_strings()
     results = pd.DataFrame(columns=cols)
 
-    for i_row, entity_scores in zip(input_triples.iterrows(), scores):
+    for i_row, entity_scores in zip(input_edges.iterrows(), scores):
         row = list(i_row[1])
         row.append(query_type)
         row += list(entity_scores)
         results.loc[len(results)] = row
+
+    return results
+
+def create_long_results_file(input_edges, scores):
+
+    results = input_edges
+    results.columns = ['s', 'p', 'o']
+    results['score'] = scores
 
     return results
 
@@ -94,7 +120,7 @@ if __name__ == '__main__':
     
     # Prepare queries
     if args.Triple_file == 'all':
-        queries = [[ent, rel, '?'] for ent in ents for rel in rels]
+        queries = [[ent, rel, ent2] for ent in ents for rel in rels for ent2 in ents]
         input_triples = pd.DataFrame(queries)
         output_file_name = '/all_query_scores.csv'
     else:
@@ -120,22 +146,29 @@ if __name__ == '__main__':
                 print(f'Dropped {num_unseen} knockouts from input triples. See Output_dir/unseen_knockouts.tsv')
 
     # Calculate scores
-    if args.query_type == 'sp_':
-        subjects, predicates = prepare_sp_(input_triples, kge_model)
-        query_scores = kge_model.score_sp(subjects, predicates).tolist()
-    elif args.query_type == '_po':
-        predicates, objects = prepare__po(input_triples, kge_model)
-        query_scores = kge_model.score_po(predicates, objects).tolist()
-    elif args.query_type == 's_o':
-        subjects, objects = prepare_s_o(input_triples, kge_model)
-        query_scores = kge_model.score_so(subjects, objects).tolist()
+    if args.Triple_file == 'all':
+        subjects, predicates, objects = prepare_spo(input_triples, kge_model)
+        query_scores = kge_model.score_spo(subjects, predicates, objects).tolist()
     else:
-        raise ValueError(
-            'Invalid query type, should be one of: "sp_", "_po", "s_o".')
+        if args.query_type == 'sp_':
+            subjects, predicates = prepare_sp_(input_triples, kge_model)
+            query_scores = kge_model.score_sp(subjects, predicates).tolist()
+        elif args.query_type == '_po':
+            predicates, objects = prepare__po(input_triples, kge_model)
+            query_scores = kge_model.score_po(predicates, objects).tolist()
+        elif args.query_type == 's_o':
+            subjects, objects = prepare_s_o(input_triples, kge_model)
+            query_scores = kge_model.score_so(subjects, objects).tolist()
+        else:
+            raise ValueError(
+                'Invalid query type, should be one of: "sp_", "_po", "s_o".')
 
     # Process and save results
-    results = create_results_file(
-        query_scores, kge_model, args.query_type)
+    if args.Triple_file == 'all':
+        results = create_long_results_file(input_triples, query_scores)
+    else:
+        results = create_wide_results_file(
+            input_triples, query_scores, kge_model, args.query_type)
     
     if args.addins:
         trimmed_results = input_triples[[0, 1, 2]]
