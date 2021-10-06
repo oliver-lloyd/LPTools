@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
 
 	path_to_experiments = '/bp1store/mrcieu1/users/fu19841/kge/local/experiments/'
-	path_to_jobs = '/home/fu19841/jobs/'
+	path_to_jobs = '/home/fu19841/jobs/gridsearch/'
 	if 'all' in args.files:
 		files_to_process = os.listdir(path_to_experiments)
 	else:
@@ -30,3 +30,4 @@ if __name__ == "__main__":
 			new_file = template_file.replace('<file_name>', loc)
 			with open(path_to_jobs + new_file_name, 'w+') as new_f:
 				new_f.write(new_file)
+				print(f'Wrote {new_file_name}')
