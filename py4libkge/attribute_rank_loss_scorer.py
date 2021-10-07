@@ -44,7 +44,7 @@ if __name__ == '__main__':
     # Set up storage variables
     adj_rank = 1
     counter = 0
-    attribute_loss = {p:0 for p in target_triples.p.unique()}
+    attribute_loss_values = {predicate: 0 for predicate in target_triples.p.unique()}
     target_triples['adjusted_rank'] = None
     target_triples['attribute_loss'] = None
     num_targets = len(target_triples)
@@ -52,27 +52,27 @@ if __name__ == '__main__':
     # Iterate through scores table, calculate rank losses, stitch them to knockout table
     for i, row in merged_scores.iterrows():
 
-        # If row represents addin/knockout, store current loss values and continue
+        # If row represents an addin/knockout edge, store current loss values and continue
         if row.target:
             query = f's == \'{row["s"]}\' & p == \'{row["p"]}\' & o == \'{row["o"]}\''
             target_index = target_triples.query(query).index[0]
             target_triples['adjusted_rank'][target_index] = adj_rank
-            target_triples['attribute_loss'][target_index] = attribute_loss[row['p']]
+            target_triples['attribute_loss'][target_index] = attribute_loss_values[row['p']]
             counter += 1
-        else:  # Otherwise increment corresponding loss value depending on type of edge
+        else:  # Otherwise increment corresponding loss value depending on the edge predicate
             adj_rank += 1
             if row['p'].startswith('MREVE'):
-                if pd.isna(row.mr_pval):
-                    pval_increment = 0.99995
-                else:
-                    pval_increment = row.mr_pval - 5e-5
-                attribute_loss[row['p']] += pval_increment
+                if pd.isna(row.mr_pval):  
+                    pval_increment = 0.99995  # If no MR data is available, increment by 1-threshold
+                else:  
+                    pval_increment = row.mr_pval - 5e-5  # Otherwise increment by distance from threshold
+                attribute_loss_values[row['p']] += pval_increment
             else:  
                 if pd.isna(row.gen_cor):
-                    gc_increment = 0.5
+                    gc_increment = 0.5  # If no GC data is available, increment by 1-threshold
                 else:
-                    gc_increment = 0.5 - abs(row.gen_cor)
-                attribute_loss[row['p']] += gc_increment
+                    gc_increment = 0.5 - abs(row.gen_cor)  # Otherwise increment by distance from threshold
+                attribute_loss_values[row['p']] += gc_increment
 
         # Break if found all target triples, otherwise print update
         if counter == num_targets:
