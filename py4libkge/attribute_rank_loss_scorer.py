@@ -15,9 +15,9 @@ if __name__ == '__main__':
     scores = pd.read_csv(args.query_scores)
     scores = scores.loc[scores.working_edge == args.addins]
     scores = scores.sort_values('score', ascending=args.addins).reset_index(drop=True)
-    scores['target'] = False
 
-    # Load in triples of interest
+    # Load in triples of interest and mark them in the scores table
+    scores['target'] = False
     target_triples = pd.read_csv(args.target_triples, sep='\t', header=None)
     target_triples.columns = ['s', 'p', 'o']
     for i, row in target_triples.iterrows():
@@ -81,4 +81,4 @@ if __name__ == '__main__':
         elif not i % 1000:
             print(f'Processed {i} query scores, found {counter}/{num_targets} target triples so far.')
             
-    target_triples.to_csv('results_attribute_rank_loss2.csv', index=False)
+    target_triples.to_csv('results_attribute_rank_loss.csv', index=False)
