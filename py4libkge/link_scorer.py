@@ -86,11 +86,29 @@ def create_wide_results_file(input_edges, scores, model, query_type):
 
     return results
 
-def create_long_results_file(input_edges, scores):
 
-    results = input_edges
+def find_working_edge_index(i, edgelist, df_out):
+
+    print(f"processing edge {i} of {len(edgelist)}")
+    triple = edgelist.loc[i]
+    edge_index = df_out.loc[(df_out['s'] == triple[0]) & (df_out['p'] == triple[1]) & (df_out['o'] == triple[2])].index[0]
+    
+    return edge_index
+
+def create_long_results_file(input_edges, scores, edgelist):
+    import multiprocessing as mp
+
+    results = input_edges.reset_index(drop=True)
     results.columns = ['s', 'p', 'o']
     results['score'] = scores
+    
+
+    with mp.Pool(mp.cpu_count()) as pool:
+        args = [[i, edgelist, results] for i in edgelist.index]
+        working_edge_indices = pool.starmap(find_working_edge_index, args)
+    
+    results['working_edge'] = False
+    results['working_edge'].loc[working_edge_indices] = True
 
     return results
 
@@ -110,6 +128,7 @@ if __name__ == '__main__':
                         help='File path for output')
     parser.add_argument('--addins', metavar='a', type=str, default=None, 
                         help='List of added-in edges')
+    parser.add_argument('--edgelist', metavar='e', type=str, default=None)
     args = parser.parse_args()
 
     # Load model
@@ -117,6 +136,9 @@ if __name__ == '__main__':
     kge_model = KgeModel.create_from(checkpoint)
     ents = kge_model.dataset.entity_strings()
     rels = kge_model.dataset.relation_strings()
+    if args.edgelist:
+        edgelist = pd.read_csv(args.edgelist, header=None, sep='\t')
+        args.edgelist = edgelist
     
     # Prepare queries
     if args.Triple_file == 'all':
@@ -165,7 +187,7 @@ if __name__ == '__main__':
 
     # Process and save results
     if args.Triple_file == 'all':
-        results = create_long_results_file(input_triples, query_scores)
+        results = create_long_results_file(input_triples, query_scores, args.edgelist)
     else:
         results = create_wide_results_file(
             input_triples, query_scores, kge_model, args.query_type)
