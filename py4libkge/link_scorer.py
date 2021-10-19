@@ -87,28 +87,18 @@ def create_wide_results_file(input_edges, scores, model, query_type):
     return results
 
 
-def find_working_edge_index(i, edgelist, df_out):
-
-    print(f"processing edge {i} of {len(edgelist)}")
-    triple = edgelist.loc[i]
-    edge_index = df_out.loc[(df_out['s'] == triple[0]) & (df_out['p'] == triple[1]) & (df_out['o'] == triple[2])].index[0]
-    
-    return edge_index
-
 def create_long_results_file(input_edges, scores, edgelist):
     import multiprocessing as mp
 
     results = input_edges.reset_index(drop=True)
     results.columns = ['s', 'p', 'o']
     results['score'] = scores
-    
 
-    with mp.Pool(mp.cpu_count()) as pool:
-        args = [[i, edgelist, results] for i in edgelist.index]
-        working_edge_indices = pool.starmap(find_working_edge_index, args)
-    
-    results['working_edge'] = False
-    results['working_edge'].loc[working_edge_indices] = True
+    edgelist.columns = ['s', 'p', 'o']
+    edgelist['working_edge'] = True
+
+    results = results.merge(edgelist, how='left', on=['s', 'p', 'o'])
+    results.working_edge.fillna(False, inplace=True)
 
     return results
 
