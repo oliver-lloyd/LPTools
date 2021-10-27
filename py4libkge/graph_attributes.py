@@ -8,12 +8,14 @@ from scipy import stats
 
 def load_edgelist(data_path):
     
-    full_edgelist = pd.DataFrame()
-
-    for split in ['train', 'test', 'valid']:
-        split_edgelist = pd.read_csv(data_path + f'/{split}.txt', sep='\t', header=None)
-        split_edgelist.columns = ['s', 'p', 'o']
-        full_edgelist = full_edgelist.append(split_edgelist)
+    if 'edgelist.tsv' in listdir(data_path):
+        full_edgelist = pd.read_csv('edgelist.tsv', header=None)
+    else:
+        full_edgelist = pd.DataFrame()
+        for split in ['train', 'test', 'valid']:
+            split_edgelist = pd.read_csv(data_path + f'/{split}.txt', sep='\t', header=None)
+            split_edgelist.columns = ['s', 'p', 'o']
+            full_edgelist = full_edgelist.append(split_edgelist)
 
     return full_edgelist
 
