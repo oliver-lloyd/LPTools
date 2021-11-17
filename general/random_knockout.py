@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Randomly knockout edges from an edge list')
     parser.add_argument('Edgelist', metavar='E', type=str,
                         help='Edge list to process')
-    parser.add_argument('--num_knockouts', metavar='N', type=int,
+    parser.add_argument('--num_kos', metavar='N', type=int,
                         help='Number of edges to knockout. Default = 1% len(edgelist')
     args = parser.parse_args()
 
