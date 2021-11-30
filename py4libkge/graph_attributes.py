@@ -56,6 +56,7 @@ if __name__ == '__main__':
         'num_nodes',
         'num_edges',
         'num_edge_types',
+        'density',
         'mean_degree',
         'median_degree',
         'max_degree',
