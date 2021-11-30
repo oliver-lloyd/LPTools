@@ -38,7 +38,7 @@ def get_graph_stats(graph):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Add randomly selected edges into an edge list')
+    parser = argparse.ArgumentParser(description='Gets attributes of given graph dataset')
     parser.add_argument('dataset_paths', nargs='+', metavar='G', type=str,
                         help='LibKGE datasets to analyse')
     args = parser.parse_args()
@@ -85,7 +85,7 @@ if __name__ == '__main__':
         output_df.loc[len(output_df)] = row
 
         # Analyse sections by meta-edge
-        for predicate in target_edgelist.p.unique():
+        for predicate in target_edgelist.dp.unique():
 
             # Extract subgraph
             subgraph_edges_array = [edge for edge in edges_array if edge[2]['predicate'] == predicate]
