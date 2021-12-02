@@ -85,7 +85,7 @@ if __name__ == '__main__':
         output_df.loc[len(output_df)] = row
 
         # Analyse sections by meta-edge
-        for predicate in target_edgelist.dp.unique():
+        for predicate in target_edgelist.p.unique():
 
             # Extract subgraph
             subgraph_edges_array = [edge for edge in edges_array if edge[2]['predicate'] == predicate]
