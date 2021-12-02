@@ -22,10 +22,19 @@ def load_edgelist(data_path):
 
 def get_graph_stats(graph):
 
+    # Size statistics
     stats_dict = {}
     stats_dict['num_nodes'] = len(graph.nodes)
     stats_dict['num_edges'] = len(graph.edges)
+    stats_dict['components'] = nx.algorithms.components.number_connected_components(graph)
+    if stats_dict['components'] == 1:
+        stats_dict['diameter'] = nx.diameter(graph)
+        stats_dict['mean_distance'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(graph)
+    else:
+        stats_dict['diameter'] = np.nan
+        stats_dict['mean_distance'] = np.nan
 
+    # Degree distribution
     degrees = [tup[1] for tup in graph.degree]
     stats_dict['mean_degree'] = np.mean(degrees)
     stats_dict['median_degree'] = np.median(degrees)
@@ -34,6 +43,11 @@ def get_graph_stats(graph):
     stats_dict['skewness_degree'] = stats.skew(degrees)
     stats_dict['kurtosis_degree'] = stats.kurtosis(degrees)
 
+    # Connectivity
+    #stats_dict['clustering_coef'] = nx.algorithms.cluster.clustering(graph)
+    #stats_dict['transitivity'] = nx.algorithms.cluster.transitivity(graph)
+    stats_dict['connectivity'] = nx.algorithms.connectivity.connectivity.edge_connectivity(graph)
+    
     return stats_dict
 
 
@@ -53,10 +67,16 @@ if __name__ == '__main__':
     # Create template output dataframe
     columns = [
         'graph_section',
+        'components'
         'num_nodes',
         'num_edges',
         'num_edge_types',
+        'diameter',
+        'mean_distance',
         'density',
+        #'clustering_coef', not implemented for MultiGraph
+        #'transitivity', as above
+        'connectivity',
         'mean_degree',
         'median_degree',
         'max_degree',
@@ -64,9 +84,10 @@ if __name__ == '__main__':
         'skewness_degree',
         'kurtosis_degree'
     ]
-    
+
     # Iterate through graphs and get statistics
     for graph_name in graphs:
+        print('Processing full graph')
         target_edgelist = graphs[graph_name]
         output_df = pd.DataFrame(columns=columns)
 
@@ -86,7 +107,7 @@ if __name__ == '__main__':
 
         # Analyse sections by meta-edge
         for predicate in target_edgelist.p.unique():
-
+            print(f'Processing subgraph: {predicate}')
             # Extract subgraph
             subgraph_edges_array = [edge for edge in edges_array if edge[2]['predicate'] == predicate]
             target_subgraph = nx.MultiGraph()
