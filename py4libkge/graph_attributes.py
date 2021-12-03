@@ -55,6 +55,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Gets attributes of given graph dataset')
     parser.add_argument('dataset_paths', nargs='+', metavar='G', type=str,
                         help='LibKGE datasets to analyse')
+    parser.add_argument('--no_meta_edges', default=False, action='store_true')
     args = parser.parse_args()
 
     # Load in datasets
@@ -107,22 +108,23 @@ if __name__ == '__main__':
         output_df.loc[len(output_df)] = row
 
         # Analyse sections by meta-edge
-        for predicate in target_edgelist.p.unique():
-            print(f'Processing subgraph: {predicate}')
-            # Extract subgraph
-            subgraph_edges_array = [edge for edge in edges_array if edge[2]['predicate'] == predicate]
-            target_subgraph = nx.MultiGraph()
-            target_subgraph.add_edges_from(subgraph_edges_array)
-            assert len(target_edgelist.loc[target_edgelist.p == predicate]) == len(target_subgraph.edges)
+        if not args.no_meta_edges:
+            for predicate in target_edgelist.p.unique():
+                print(f'Processing subgraph: {predicate}')
+                # Extract subgraph
+                subgraph_edges_array = [edge for edge in edges_array if edge[2]['predicate'] == predicate]
+                target_subgraph = nx.MultiGraph()
+                target_subgraph.add_edges_from(subgraph_edges_array)
+                assert len(target_edgelist.loc[target_edgelist.p == predicate]) == len(target_subgraph.edges)
 
-            # Analyse subgraph
-            subgraph_stats = get_graph_stats(target_subgraph)
-            subgraph_stats['num_edge_types'] = 1
-            subgraph_stats['density'] = subgraph_stats['num_edges'] / (subgraph_stats['num_nodes'] * (subgraph_stats['num_nodes'] - 1))
-            
-            row = pd.Series(subgraph_stats, index=columns)
-            row.graph_section = predicate
-            output_df.loc[len(output_df)] = row
+                # Analyse subgraph
+                subgraph_stats = get_graph_stats(target_subgraph)
+                subgraph_stats['num_edge_types'] = 1
+                subgraph_stats['density'] = subgraph_stats['num_edges'] / (subgraph_stats['num_nodes'] * (subgraph_stats['num_nodes'] - 1))
+                
+                row = pd.Series(subgraph_stats, index=columns)
+                row.graph_section = predicate
+                output_df.loc[len(output_df)] = row
 
         # Save output in execution dir
         output_df.to_csv(f'attributes_{graph_name}.csv', index=False)
