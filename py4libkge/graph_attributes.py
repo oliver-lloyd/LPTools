@@ -67,7 +67,7 @@ if __name__ == '__main__':
     # Create template output dataframe
     columns = [
         'graph_section',
-        'components'
+        'components',
         'num_nodes',
         'num_edges',
         'num_edge_types',
@@ -101,6 +101,7 @@ if __name__ == '__main__':
         graph_stats = get_graph_stats(target_graph)
         graph_stats['num_edge_types'] = len(target_edgelist['p'].unique())
         graph_stats['density'] = graph_stats['num_edges'] / (graph_stats['num_nodes'] * (graph_stats['num_nodes']-1) * len(target_edgelist.p.unique()))
+        
         row = pd.Series(graph_stats, index=columns)
         row.graph_section = 'full graph'
         output_df.loc[len(output_df)] = row
@@ -118,6 +119,7 @@ if __name__ == '__main__':
             subgraph_stats = get_graph_stats(target_subgraph)
             subgraph_stats['num_edge_types'] = 1
             subgraph_stats['density'] = subgraph_stats['num_edges'] / (subgraph_stats['num_nodes'] * (subgraph_stats['num_nodes'] - 1))
+            
             row = pd.Series(subgraph_stats, index=columns)
             row.graph_section = predicate
             output_df.loc[len(output_df)] = row
