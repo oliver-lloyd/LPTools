@@ -88,7 +88,7 @@ if __name__ == '__main__':
 
     # Iterate through graphs and get statistics
     for graph_name in graphs:
-        print('Processing full graph')
+        print(f'Processing full graph: {graph_name}')
         target_edgelist = graphs[graph_name]
         output_df = pd.DataFrame(columns=columns)
 
