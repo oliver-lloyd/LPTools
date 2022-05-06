@@ -28,11 +28,24 @@ def get_graph_stats(graph):
     stats_dict['num_edges'] = len(graph.edges)
     stats_dict['components'] = nx.algorithms.components.number_connected_components(graph)
     if stats_dict['components'] == 1:
-        stats_dict['diameter'] = nx.diameter(graph)
-        stats_dict['mean_distance'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(graph)
+        stats_dict['mean_comoponent_diameter'] = nx.diameter(graph)
+        stats_dict['mean_component_distance'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(graph)
+        stats_dict['mean_component_connectivity'] = nx.algorithms.connectivity.connectivity.edge_connectivity(graph)
     else:
-        stats_dict['diameter'] = np.nan
-        stats_dict['mean_distance'] = np.nan
+        diameter = []
+        distance = []
+        connectivity = []
+        for i, component_nodes in enumerate(nx.connected_components(graph)):
+            print(f'Checking component {i} of {stats_dict["components"]}')
+            component = graph.subgraph(component_nodes)
+            if len(component.edges) > 0:
+                diameter.append(nx.diameter(component))
+                distance.append(nx.algorithms.shortest_paths.generic.average_shortest_path_length(component))
+                nx.algorithms.connectivity.connectivity.edge_connectivity(component)
+
+        stats_dict['mean_comoponent_diameter'] = np.mean(diameter)
+        stats_dict['mean_component_distance'] = np.mean(distance)
+        stats_dict['mean_component_connectivity'] = np.mean(connectivity)
 
     # Degree distribution
     degrees = [tup[1] for tup in graph.degree]
