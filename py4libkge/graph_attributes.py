@@ -2,6 +2,7 @@ import networkx as nx
 import pandas as pd
 import numpy as np
 import argparse
+import multiprocessing as mp
 from os import listdir
 from scipy import stats
 
@@ -28,13 +29,18 @@ def get_graph_stats(graph):
     stats_dict['num_edges'] = len(graph.edges)
     stats_dict['components'] = nx.algorithms.components.number_connected_components(graph)
     if stats_dict['components'] == 1:
-        stats_dict['mean_comoponent_diameter'] = nx.diameter(graph)
+        stats_dict['mean_component_diameter'] = nx.diameter(graph)
         stats_dict['mean_component_distance'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(graph)
         stats_dict['mean_component_connectivity'] = nx.algorithms.connectivity.connectivity.edge_connectivity(graph)
     else:
-        diameter = []
-        distance = []
-        connectivity = []
+        component_node_lists = nx.connected_components(graph)
+        components = [graph.subgraph(nodes) for nodes in component_node_lists]
+        with mp.Pool(mp.cpu_count()) as pool:
+            diameter = pool.map(nx.diameter, components)
+            distance = pool.map(nx.algorithms.shortest_paths.generic.average_shortest_path_length, components)
+            connectivity = pool.map(nx.algorithms.connectivity.connectivity.edge_connectivity, components)
+
+        """
         for i, component_nodes in enumerate(nx.connected_components(graph)):
             print(f'Checking component {i} of {stats_dict["components"]}')
             component = graph.subgraph(component_nodes)
@@ -42,8 +48,9 @@ def get_graph_stats(graph):
                 diameter.append(nx.diameter(component))
                 distance.append(nx.algorithms.shortest_paths.generic.average_shortest_path_length(component))
                 nx.algorithms.connectivity.connectivity.edge_connectivity(component)
+        """
 
-        stats_dict['mean_comoponent_diameter'] = np.mean(diameter)
+        stats_dict['mean_component_diameter'] = np.mean(diameter)
         stats_dict['mean_component_distance'] = np.mean(distance)
         stats_dict['mean_component_connectivity'] = np.mean(connectivity)
 
@@ -85,12 +92,12 @@ if __name__ == '__main__':
         'num_nodes',
         'num_edges',
         'num_edge_types',
-        'diameter',
-        'mean_distance',
+        'mean_component_diameter',
+        'mean_component_distance',
         'density',
         #'clustering_coef', not implemented for MultiGraph
         #'transitivity', as above
-        'connectivity',
+        'mean_component_connectivity',
         'mean_degree',
         'median_degree',
         'max_degree',
@@ -98,12 +105,13 @@ if __name__ == '__main__':
         'skewness_degree',
         'kurtosis_degree'
     ]
+    output_df = pd.DataFrame(columns=columns)
 
     # Iterate through graphs and get statistics
+
     for graph_name in graphs:
         print(f'Processing full graph: {graph_name}')
         target_edgelist = graphs[graph_name]
-        output_df = pd.DataFrame(columns=columns)
 
         # Create multigraph
         edges_array = [(row.s, row.o, {'predicate': row.p}) for i, row in target_edgelist.iterrows()]
@@ -116,8 +124,9 @@ if __name__ == '__main__':
         graph_stats['num_edge_types'] = len(target_edgelist['p'].unique())
         graph_stats['density'] = graph_stats['num_edges'] / (graph_stats['num_nodes'] * (graph_stats['num_nodes']-1) * len(target_edgelist.p.unique()))
         
-        row = pd.Series(graph_stats, index=columns)
-        row.graph_section = 'full graph'
+        # Store results
+        row = pd.Series(graph_stats)
+        row['graph_section'] = 'full graph'
         output_df.loc[len(output_df)] = row
 
         # Analyse sections by meta-edge
