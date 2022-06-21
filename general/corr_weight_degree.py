@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import multiprocessing as mp
 from scipy.stats import pearsonr
+from datetime import datetime
 
 def get_degree_and_strength(g, node, directed=False):
     """
@@ -62,7 +63,9 @@ if __name__ == '__main__':
     parser.add_argument('weight_transform', type=str)
     args = parser.parse_args()
 
+    # Read in data
     df = pd.read_csv(args.edgelist_path)
+
     # Transform weight variable
     if args.weight_transform == 'neglog10':
         df['weight'] = -np.log10(df[args.weight_variable])
@@ -72,6 +75,10 @@ if __name__ == '__main__':
         df['weight'] = df[args.weight_variable]
     else:
         raise ValueError("Weight transform should be one of ['-log10', 'abs'] or left blank. ")
+
+    raw_num_edges = len(df)
+    df = df.loc[pd.notna(df.weight)]
+    no_weight_edges = raw_num_edges - len(df)
 
     # Create graph
     graph_directed = {True: nx.DiGraph, False: nx.Graph()}
@@ -94,12 +101,13 @@ if __name__ == '__main__':
     else:
         output_df.columns = ['node', 'degree', 'strength']
 
-    output_df.to_csv(f'weight_degree_data.csv', index=False)
+    output_df.to_csv(f'weight_degree_data_{str(datetime.now())}.csv', index=False)
 
 
     # Calculate correlations and write summary file 
-    with open('weight_degree_summary.txt', 'w+') as f:
-        f.write(f'Summary for weight-degree correlation analysis of dataset {args.edgelist_path}\n')
+    with open(f'weight_degree_summary_{str(datetime.now())}.txt', 'w+') as f:
+        f.write(f'Summary for weight-degree correlation analysis of dataset {args.edgelist_path}:\n')
+        f.write(f'Raw data had {raw_num_edges} edges, removed {no_weight_edges} due to lack of weight info.\n')
         if args.directed:
             in_corr = pearsonr(output_df['in_degree'], output_df['in_strength'])
             out_corr = pearsonr(output_df['out_degree'], output_df['out_strength'])
