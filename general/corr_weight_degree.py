@@ -2,6 +2,8 @@ import networkx as nx
 import argparse
 import numpy as np
 import pandas as pd
+import multiprocessing as mp
+from scipy.stats import pearsonr
 
 def get_degree_and_strength(g, node, directed=False):
     """
@@ -10,53 +12,100 @@ def get_degree_and_strength(g, node, directed=False):
     """
 
     if directed:
-        in_edges = []
+        in_degree = 0
         in_weights = []
-        out_edges = []
+        out_degree = 0
         out_weights = []
 
-        for edge in g.edges.data():
+        edges = g.edges(node) # Cannot use g.adj here because it only returns out edges
+        for edge in edges:
+            weight = g.get_edge_data(*edge)['weight']
             if edge[0] == node:
-                out_edges.append(edge[0])
-                out_weights.append(edge[2]['weight'])
+                out_degree += 1
+                out_weights.append(weight)
             elif edge[1] == node:
-                in_edges.append(edge[1])
-                in_weights.append(edge[2]['weight'])
+                in_degree += 1
+                in_weights.append(weight)
+
         
-        in_degree = len(in_edges)
-        in_strength = np.median(in_weights)
+        if len(in_weights) == 0: # Account for edges with no in/out 
+            in_strength = 0
+        else:
+            in_strength = np.median(in_weights)
+        if len(out_weights) == 0:
+            out_strength = 0
+        else:
+            out_strength = np.median(out_weights)
 
-        out_degree = len(out_edges)
-        out_strength = np.median(out_weights)
-
-        return [in_degree, in_strength, out_degree, out_strength]
+        return [node, in_degree, in_strength, out_degree, out_strength]
 
     else:
-        edges = [edge for edge in g.edges.data() if node in edge[]]
+        edges = g.adj[node]
         degree = len(edges)
-        weights = [edge[2]['weight'] for edge in edges]
-        strength = np.median(weights)
+        if len(edges) == 0:
+            strength = 0
+        else:
+            weights = [edge['weight'] for edge in edges]
+            strength = np.median(weights)
 
-        return [degree, strength]
+        return [node, degree, strength]
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('edgelist_path')
-    parser.add_argument('weight_variable')
-    parser.add_argument('weight_transform', default=None)
-
+    parser.add_argument('edgelist_path', type=str)
+    parser.add_argument('head_node_pos', type=int)
+    parser.add_argument('tail_node_pos', type=int)
+    parser.add_argument('directed', type=bool)
+    parser.add_argument('weight_variable', type=str)
+    parser.add_argument('weight_transform', type=str)
     args = parser.parse_args()
 
-    og_df = pd.read_csv(edgelist_path, header=None)
-
-    if args.weight_transform == '-log10':
-        og_df['weight'] = -np.log10(og_df[weight_variable])
+    df = pd.read_csv(args.edgelist_path)
+    # Transform weight variable
+    if args.weight_transform == 'neglog10':
+        df['weight'] = -np.log10(df[args.weight_variable])
     elif args.weight_transform == 'abs':
-        og_df['weight'] = np.abs(og_df[weight_variable])
+        df['weight'] = np.abs(df[args.weight_variable])
     elif args.weight_transform == None:
-        og_df['weight'] = og_df[weight_variable]
+        df['weight'] = df[args.weight_variable]
     else:
         raise ValueError("Weight transform should be one of ['-log10', 'abs'] or left blank. ")
+
+    # Create graph
+    graph_directed = {True: nx.DiGraph, False: nx.Graph()}
+    head = df.columns[args.head_node_pos]
+    tail = df.columns[args.tail_node_pos]
+    g = nx.from_pandas_edgelist(df, head, tail, edge_attr='weight', create_using=graph_directed[args.directed])
+    assert len(df) == len(g.edges())
+    del df
+
+    # Get weights and degrees in parallel
+    func_args = [[g, node, args.directed] for node in g.nodes()]
+    with mp.Pool(mp.cpu_count()) as pool:
+        results = pool.starmap(get_degree_and_strength, func_args)
+    del g
+
+    # Create output df
+    output_df = pd.DataFrame(results)
+    if args.directed:
+        output_df.columns = ['node', 'in_degree', 'in_strength', 'out_degree', 'out_strength']
+    else:
+        output_df.columns = ['node', 'degree', 'strength']
+
+    output_df.to_csv(f'weight_degree_data.csv', index=False)
+
+
+    # Calculate correlations and write summary file 
+    with open('weight_degree_summary.txt', 'w+') as f:
+        f.write(f'Summary for weight-degree correlation analysis of dataset {args.edgelist_path}\n')
+        if args.directed:
+            in_corr = pearsonr(output_df['in_degree'], output_df['in_strength'])
+            out_corr = pearsonr(output_df['out_degree'], output_df['out_strength'])
+            f.write(f'- In-weight-degree correlation: r={in_corr[0]} with pval={in_corr[1]}\n')
+            f.write(f'- Out-weight-degree correlation: r={out_corr[0]} with pval={out_corr[1]}')
+        else:
+            corr = pearsonr(output_df['degree'], output_df['strength'])
+            f.write(f'- Weight-degree correlation: r={corr[0]} with pval={corr[1]}')
 
