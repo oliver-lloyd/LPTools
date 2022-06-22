@@ -56,8 +56,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('edgelist_path', type=str)
-    parser.add_argument('head_node_pos', type=int)
-    parser.add_argument('tail_node_pos', type=int)
+    parser.add_argument('head_node')
+    parser.add_argument('tail_node')
     parser.add_argument('directed', type=bool)
     parser.add_argument('weight_variable', type=str)
     parser.add_argument('weight_transform', type=str)
@@ -76,14 +76,25 @@ if __name__ == '__main__':
     else:
         raise ValueError("Weight transform should be one of ['-log10', 'abs'] or left blank. ")
 
+    # Remove edges with no weight info
     raw_num_edges = len(df)
     df = df.loc[pd.notna(df.weight)]
     no_weight_edges = raw_num_edges - len(df)
 
+    # Parse head and tail nodes (they can be column index or str)
+    try:
+        head_ind = int(args.head_node)
+        head = df.columns[head_ind]
+    except ValueError:
+        head = args.head_node
+    try:
+        tail_ind = int(args.tail_node)
+        tail = df.columns[tail_ind]
+    except ValueError:
+        tail = args.tail_node
+    
     # Create graph
     graph_directed = {True: nx.DiGraph, False: nx.Graph()}
-    head = df.columns[args.head_node_pos]
-    tail = df.columns[args.tail_node_pos]
     g = nx.from_pandas_edgelist(df, head, tail, edge_attr='weight', create_using=graph_directed[args.directed])
     assert len(df) == len(g.edges())
     del df
