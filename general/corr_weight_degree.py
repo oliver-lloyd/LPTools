@@ -112,7 +112,7 @@ if __name__ == '__main__':
     else:
         output_df.columns = ['node', 'degree', 'strength']
 
-    now = str(datetime.datetime.now())[:19].replace(' ', '_')
+    now = str(datetime.now())[:19].replace(' ', '_')
     output_df.to_csv(f'weight_degree_data_{now}.csv', index=False)
 
 
