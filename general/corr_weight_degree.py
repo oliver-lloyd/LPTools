@@ -18,7 +18,7 @@ def get_degree_and_strength(g, node, directed=False):
         out_degree = 0
         out_weights = []
 
-        edges = g.edges(node) # Cannot use g.adj here because it only returns out edges
+        edges = set(list(g.edges(node)) + list(g.in_edges(node)))
         for edge in edges:
             weight = g.get_edge_data(*edge)['weight']
             if edge[0] == node:
@@ -33,6 +33,8 @@ def get_degree_and_strength(g, node, directed=False):
             in_strength = 0
         else:
             in_strength = np.median(in_weights)
+            if in_strength == np.inf:
+                print(node, in_weights)
         if len(out_weights) == 0:
             out_strength = 0
         else:
