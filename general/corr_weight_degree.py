@@ -81,7 +81,7 @@ if __name__ == '__main__':
     df = df.loc[pd.notna(df.weight)]
     no_weight_edges = raw_num_edges - len(df)
 
-    # Parse head and tail nodes (they can be column index or str)
+    # Parse head and tail node arguments (they can be column index or str)
     try:
         head_ind = int(args.head_node)
         head = df.columns[head_ind]
@@ -112,11 +112,12 @@ if __name__ == '__main__':
     else:
         output_df.columns = ['node', 'degree', 'strength']
 
-    output_df.to_csv(f'weight_degree_data_{str(datetime.now())}.csv', index=False)
+    now = str(datetime.datetime.now())[:19].replace(' ', '_')
+    output_df.to_csv(f'weight_degree_data_{now}.csv', index=False)
 
 
     # Calculate correlations and write summary file 
-    with open(f'weight_degree_summary_{str(datetime.now())}.txt', 'w+') as f:
+    with open(f'weight_degree_summary_{now}.txt', 'w+') as f:
         f.write(f'Summary for weight-degree correlation analysis of dataset {args.edgelist_path}:\n')
         f.write(f'Raw data had {raw_num_edges} edges, removed {no_weight_edges} due to lack of weight info.\n')
         if args.directed:
