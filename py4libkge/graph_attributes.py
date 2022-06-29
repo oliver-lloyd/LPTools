@@ -87,6 +87,7 @@ if __name__ == '__main__':
 
     # Create template output dataframe
     columns = [
+        'graph_name',
         'graph_section',
         'components',
         'num_nodes',
@@ -126,6 +127,7 @@ if __name__ == '__main__':
         
         # Store results
         row = pd.Series(graph_stats)
+        row['graph_name'] = graph_name
         row['graph_section'] = 'full graph'
         output_df.loc[len(output_df)] = row
 
