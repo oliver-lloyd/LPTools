@@ -105,13 +105,13 @@ if __name__ == '__main__':
         'skewness_degree',
         'kurtosis_degree'
     ]
-    output_df = pd.DataFrame(columns=columns)
+    
 
     # Iterate through graphs and get statistics
-
     for graph_name in graphs:
         print(f'Processing full graph: {graph_name}')
         target_edgelist = graphs[graph_name]
+        output_df = pd.DataFrame(columns=columns)
 
         # Create multigraph
         edges_array = [(row.s, row.o, {'predicate': row.p}) for i, row in target_edgelist.iterrows()]
