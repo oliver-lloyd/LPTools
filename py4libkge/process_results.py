@@ -2,7 +2,6 @@ import pandas as pd
 import os
 import argparse
 import yaml
-from numpy import nan
 from nested_lookup import nested_lookup
 import warnings
 
@@ -60,7 +59,7 @@ if __name__ == "__main__":
         # Load results, add columns for config params
         results = pd.read_csv(path_to_this_result)
         for param in non_fixed_params:
-            results[param] = nan
+            results[param] = None
 
         # Iterate though experiment trials
         non_best_trials = []
@@ -71,12 +70,18 @@ if __name__ == "__main__":
                 continue
 
             # Check if trial is valid and finished
-            valid_trial_check = os.path.isdir(path_to_this_experiment + loc) and trial_number in results.child_folder
+            valid_trial_check = os.path.isdir(path_to_this_experiment + loc) and trial_number in results.child_folder.values
+            checkpoints_non_best = [f for f in os.listdir(f"{path_to_this_experiment}/{loc}/") if f.endswith('.pt') and 'best' not in f]
+            if len(checkpoints_non_best) == 0:
+                raise ValueError(f'Trial {loc} has no valid checkpoints. Even invalid trial configurations should produce checkpoint_00000.pt. Fix the cause and re-run this program.')
+                continue
+            checkpoints_int = [int(cpt.split('_')[-1][:-3]) for cpt in checkpoints_non_best]
             if not valid_trial_check:
-                print(f'Trial {loc} is invalid due to not being present in experiment trace.')
-                os.system(f"rm {path_to_this_experiment}/{loc}/*.pt")
+                print(f'Trial {loc} is invalid due to not being present in experiment trace, and likely errored before finish. Epochs started = {max(checkpoints_int) + 1}')
+                os.system(f"rm {path_to_this_experiment}/{loc}/checkpoint_0*.pt")
             else: 
                 # Load config data
+                print(f'Trial {loc} is valid. Analysing..')
                 row = results.loc[results.child_folder == trial_number]
                 child_job_id = row['child_job_id'].iloc[0]
                 with open(path_to_this_experiment + loc + f'/config/{child_job_id}.yaml') as file:
@@ -113,5 +118,8 @@ if __name__ == "__main__":
                             f"{param} could not be properly parsed. The resulting dictionary has been converted to a string.")
                         results[param][trial_number] = str(value)
 
+        # Remove any unuseful .pt files in base experiment dir
+        os.system(f"rm {path_to_this_experiment}/checkpoint_0*.pt")
+        
         # Write results to file
         results.to_csv(path_to_this_result, index=False)
